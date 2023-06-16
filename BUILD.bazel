@@ -1,0 +1,106 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+
+
+
+# grpc message
+
+proto_library(
+    name = "addressbook_proto",
+    srcs = [
+        "src/main/proto/addressbook.proto",
+    ]
+)
+
+proto_library(
+    name = "helloworld_proto",
+    srcs = [
+        "src/main/proto/helloworld.proto",
+    ],
+    deps = [
+        ":addressbook_proto",
+    ]
+)
+
+java_proto_library(
+    name = "addressbook_proto_java",
+    deps = [
+        ":addressbook_proto",
+    ]
+)
+
+java_proto_library(
+    name = "helloworld_proto_java",
+    deps = [
+        ":helloworld_proto",
+    ],
+)
+
+java_grpc_library(
+    name = "helloworld_java_grpc",
+    srcs = [
+        ":helloworld_proto",
+    ],
+    deps = [
+        ":helloworld_proto_java",
+    ],
+)
+
+
+# library
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["src/main/java/**/grnd/constants/*.java"]) +
+        glob(["src/main/java/**/grnd/controller/*.java"]) +
+        glob(["src/main/java/**/grnd/entity/*.java"]) +
+        glob(["src/main/java/**/grnd/entity/engine/*.java"]) +
+        glob(["src/main/java/**/grnd/exception/*.java"]) +
+        glob(["src/main/java/**/grnd/service/*.java"]) +
+        glob(["src/main/java/**/grnd/util/*.java"]) +
+        glob(["src/main/java/**/grnd/*.java"])
+)
+
+java_library(
+    name = "augmentation-backend-library",
+    srcs = [
+        ":srcs",
+        ],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        ":addressbook_proto_java",
+        ":helloworld_proto_java",
+        ":helloworld_java_grpc",
+    ],
+)
+
+
+# container
+
+container_image(
+    name = "augmentation_backend_base_image",
+    base = "@augmentation-backend-base//image",
+    workdir="/app",
+)
+
+
+# host
+
+java_binary(
+    name = "augmentation-backend-app",
+    srcs = glob(["src/main/java/**/grnd/GovernmentRnDDemoApplication.java"]),
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        ":augmentation-backend-library",
+        ":addressbook_proto_java",
+        ":helloworld_proto_java",
+        ":helloworld_java_grpc",
+    ],
+    main_class = "com.nexr.de.grnd.GovernmentRnDDemoApplication",
+    runtime_deps = [
+        ":augmentation_backend_base_image",
+    ],
+)
