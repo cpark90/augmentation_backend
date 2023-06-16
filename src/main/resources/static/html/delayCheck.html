@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>G-RnD</title>
+	<script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+	<style type="text/css">
+		.d_container { 
+			position: relative;
+			height: 100%;
+			width: 100%;
+			min-height:750px;
+			min-width:1524px;
+			background: #fff;
+		}
+		.div_box { 
+			position: absolute; 
+			height: 700px;
+			width: 1500px;
+			background: #ffffff;
+			top: 50%;
+			left: 50%;
+			margin: -350px 0 0 -774px;
+			border: 1px solid #dddddd;
+			border-radius: 10px;
+		}
+	</style>
+	<script type="text/javascript">
+		
+		var resultList = [];
+		var resultSum = 0;
+		
+		function delayCheck(){
+			
+			var requestId = (function(){
+				return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+					var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+					return v.toString(16);
+				});
+			})();//history key로 사용하자
+			
+			
+			var requestData = {
+					"requestId":requestId
+					,"startTime": new Date().getTime()
+			};
+			
+			
+			
+			$.ajax({
+				url:'/demo/delayCheck'
+					,async:true //false 일 경우 동기 요청으로 변경
+					,contentType: "application/json; charset=utf-8;"
+					,type:'POST' //GET, PUT
+					,data: JSON.stringify(requestData) //전송할 데이터
+					,dataType: "json" // xml, json, script, html
+					,beforeSend:function(xhr) {
+						document.getElementById("resultDownloadBtn").disabled = true;
+					}// 서버 요청 전 호출 되는 함수 return false; 일 경우 요청 중단
+					,complete:function(xhr) {
+						if(xhr.readyState === 4){
+							if(xhr.status === 200){
+								var startTime = xhr.responseJSON.startTime;
+								var duration = xhr.responseJSON.duration;
+								var requestId = xhr.responseJSON.requestId;
+								var now = new Date().getTime();
+								var result = (now - startTime - duration);
+								resultList.push(result);
+								resultSum += result;
+								document.getElementById("checkList").innerHTML += "<li id='" + requestId + "'>" + result + "ms = " + now + "-" + startTime + "-" + duration + " |response:" + xhr.responseText + "</li>";
+								
+								document.getElementById("meanResult").innerHTML = (resultSum / resultList.length);
+								
+								document.getElementById(requestId).scrollIntoView();
+								
+								console.log(xhr.responseJSON);
+							}else{
+								console.error(xhr.responseText);
+							}
+						}
+						document.getElementById("resultDownloadBtn").disabled = false;
+					}// 요청의 실패, 성공과 상관 없이 완료 될 경우 호출
+					,success:function(xhr) {}// 요청 완료 시
+					,error:function(xhr) {}// 요청 실패.
+				});
+		}
+		
+		
+	</script>
+</head>
+<body>
+	<div style="text-align: center; font-size: 28px; font-weight: bold;">네트워크 속도 체크</div>
+	<div class="d_container">
+		<div class="div_box">
+		
+<!-- 			버튼 -->
+			<div style="">
+				<div>
+					<input type="button" value="체크 시작" id="resultDownloadBtn" onclick="delayCheck();" style="width: 130px; height: 28px; margin: 5px 5px 5px 5px;"/>
+					<span>평균: </span><span id="meanResult">0</span><span>ms</span>
+				</div>
+			</div>
+			
+<!-- 			결과 출력부 -->
+			<div style="overflow: auto; height: 662px;">
+				<ol id="checkList" style="padding-inline-start: 40px;">
+				</ol>
+			</div>
+			
+		</div>
+	</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

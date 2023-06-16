@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="1 second">
+	<!--Define log file store path. Do not use the relative path -->
+	<springProperty name="LOG_HOME" source="log.home" defaultValue=""/>
+	<springProperty name="FILE_NAME" source="log.file-name" />	<!-- 로그 파일명 -->
+	<springProperty name="LOG_LEVEL" source="log.level" />	<!-- 로그 레밸 -->
+	<springProperty name="maxHistory" source="log.maxHistory" defaultValue="7"/>
+	
+	<appender name="consoleLog" class="ch.qos.logback.core.ConsoleAppender">
+		<layout class="ch.qos.logback.classic.PatternLayout">
+			<pattern>[%d{yyyy-MM-dd HH:mm:ss}:%-3relative][%thread] %-5level %logger{20}\(%line\) - %msg%n</pattern>
+		</layout>
+	</appender>
+
+	<appender name="fileRolling" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_HOME}/${FILE_NAME}.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_HOME}/${FILE_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>500MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<maxHistory>${maxHistory}</maxHistory>
+			<totalSizeCap>11GB</totalSizeCap>
+		</rollingPolicy>
+
+		<encoder>
+			<!-- pattern>%d{yyyy-MM-dd HH:mm:ss} %p %m%n</pattern-->
+			<pattern>[%d{yyyy-MM-dd HH:mm:ss}:%-3relative][%thread] %-5level %logger{20}\(%line\) - %msg%n</pattern>
+		</encoder>
+	</appender>
+	
+	
+	<logger name="com.nexr.de">
+		<level value="${LOG_LEVEL}" />
+		<appender-ref ref="fileRolling" />
+	</logger>
+	
+	<logger name="org.springframework">
+		<level value="info" />
+		<appender-ref ref="fileRolling" />
+	</logger>
+	
+	<root>
+		<level value="info" />
+		<appender-ref ref="consoleLog" />
+	</root>
+
+</configuration>

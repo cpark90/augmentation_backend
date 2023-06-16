@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>G-RnD</title>
+	<script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+	<script type="text/javascript" src="/js/yaml.min.js"></script>
+	<script type="text/javascript" src="/js/common.js"></script>
+	<style type="text/css">
+		img { max-width: 380px; height: auto; }
+		caption{ font-size: 23px; }
+		.d_container { 
+			position: relative;
+			height: 100%;
+			width: 100%;
+			min-height:750px;
+			min-width:1100px;
+			background: #fff;
+		}
+		.div_box { 
+			position: absolute; 
+			height: 720px;
+			width: 1024px;
+			background: #ffffff;
+			top: 50%;
+			left: 50%;
+			margin: -350px 0 0 -512px;
+			border: 1px solid #dddddd;
+			border-radius: 10px;
+		}
+		.lineDiv{ margin: 5px; }
+		.title {
+			display:inline-block;
+			height: 25px;
+			width: 250px;
+		}
+		.parent { display: flex; text-align: center;}
+		.child1 { flex: 1; margin: auto; display: block;}
+		.child3 { flex: 3; margin: auto; display: block;}
+		.child5 { flex: 5; margin: auto; display: block;}
+		
+		.convertMenu{
+			text-align: center;height: 35px; display: flex; justify-content: center; margin-top: 5px;
+		}
+		
+		.convertMenu > div:hover{
+			background-color: #b7b7b7; cursor:pointer;
+		}
+		
+		#reloadDatasetList:hover{
+			border-color: #ff7c7c;
+			background: url('/img/reloadRed.png') no-repeat !important;
+			width: 28px;
+			height: 28px;
+		}
+		
+		.convertMenu > div{
+			width: 200px;
+			border: 1px solid #dfdfdf;
+			margin-left: 15px;
+			margin-right: 15px;
+			padding: 6px;
+			text-align: center;
+			float:left;
+		}
+		
+		.selEngine{
+			color: #ffffff; background-color: #000000;
+		}
+	</style>
+	<script type="text/javascript">
+		
+		//변환이 완료되면 호출하자: 자동으로 셀랙트 박스 목록 갱신되도록...
+		function getDatasetList(){
+// 			console.log(selectedEngineName);
+			
+			buttonInit();
+			
+			document.getElementById("datasetList").innerHTML = '<option value="" selected="selected">선택</option>';
+			
+			let option = {
+				url:"/demo/getDatasetList"
+				,requestData: {"engineName":selectedEngineName}
+				,completeFn: function(xhr){
+					if(xhr.readyState === 4){
+						if(xhr.status === 200){
+							var datasetList = document.getElementById("datasetList");
+							
+							var searchResult = xhr.responseJSON["responseData"]["searchResult"];
+							for(var idx = 0; idx < searchResult.length; idx++){
+								var option = document.createElement("option");
+								option.innerText = searchResult[idx]["label"];
+// 								option.value = searchResult[idx]["RECEIVE_TIME_MILLIS"];
+								option.value = searchResult[idx]["value"];
+								datasetList.append(option);
+							}
+						}else{
+							console.error(xhr.responseText);
+						}
+					}
+					setActivation(false);//false: 활성화, true: 비활성화
+				}
+				,beforeSendFn: function(xhr){}
+// 				,type: "GET"
+			};
+			callAsyncUrl(option);
+			
+		}
+		
+		//변환/증식 시작
+		function startConversion(){
+			
+			var datasetList = document.getElementById("datasetList");
+			
+			if("" === datasetList.value){
+				alert("입력 데이터를 선택하세요.");
+			}else{
+				// /kube/startEngine 호출
+				
+				console.log(configfilePath);
+				console.log(sensorProfilePath);
+				console.log(selectedEngineName);
+				
+				let httpRequestEntity = {};
+	 			httpRequestEntity["configfilePath"] = configfilePath;
+	 			httpRequestEntity["sensorProfilePath"] = sensorProfilePath;
+	 			httpRequestEntity["engineProfile"] = engineProfile;//config 파일 내용
+	 			httpRequestEntity["newFolderName"] = document.getElementById(selectedEngineName + "NewFolderName").value;
+				httpRequestEntity["datasetName"] = document.getElementById("datasetList").value;//UI에서 선택한 입력데이터
+				httpRequestEntity["engineName"] = selectedEngineName;//엔진의 종류
+				
+				let option = {
+					url:"/kube/startEngine"
+					,requestData: httpRequestEntity
+					,completeFn: function(xhr){
+						console.log(xhr.responseJSON);
+						if(xhr.responseJSON["error"]){
+							buttonInit();
+							setActivation(false);//false: 활성화, true: 비활성화
+							alert(xhr.responseJSON["errorMessage"]);
+						}else{
+							let kubernetesAPIEntity = xhr.responseJSON["responseData"]["kubernetesAPIEntity"];
+							if(kubernetesAPIEntity["code"] === 200){
+								alert("이미 변환중인 프로세스가 존재하여 변환 시작을 실패했습니다.")
+							}else if(kubernetesAPIEntity["code"] === 401){
+								alert("POD 배포 권한이 없습니다. 인증서를 확인하세요.")
+							}else if(kubernetesAPIEntity["code"] === 404){
+								alert("변환 작업을 시작했습니다.");
+							}else if(kubernetesAPIEntity["code"] === 400){
+								alert("POD 이름을 정의하지 않았습니다. property 파일을 확인하세요.");
+							}else{
+								alert("지정되지 않은 오류입니다. 서버 로그를 확인하세요.");
+							}
+						}
+					}
+					,beforeSendFn: function(xhr){}
+				};
+				callAsyncUrl(option);
+			}
+			
+		}
+		
+		function getYaml(){
+			let datasetName = document.getElementById("datasetList").value;
+			
+			
+			let httpRequestEntity = {};
+// 			httpRequestEntity["configfilePath"]//transform_config_path : 파일명까지 저장함(20230511), startEngine 호출시 사용
+// 			httpRequestEntity["sensorProfilePath"]//src_sensor_profile_path, startEngine 호출시 사용
+// 			httpRequestEntity["engineProfile"];//config 파일 내용
+// 			httpRequestEntity["newFolderName"];
+			httpRequestEntity["datasetName"] = document.getElementById("datasetList").value;//UI에서 선택한 입력데이터
+			httpRequestEntity["engineName"] = selectedEngineName;//엔진의 종류
+			
+			if(httpRequestEntity["datasetName"] !== ""){
+				let option = {
+					url:"/demo/getYaml"
+					,requestData: httpRequestEntity
+					,completeFn: function(xhr){
+						let profile = JSON.parse(xhr.responseJSON["responseData"]["profile"]);
+						setProfileValue(profile);
+					}
+					,beforeSendFn: function(xhr){}
+				};
+				callAsyncUrl(option);
+			}
+		}
+		
+		function showIamge(){
+			buttonInit();
+			
+			resultImgInterval = setInterval(function(){
+				var resultImgObj = document.getElementById("resultImg");
+				resultImgObj.src = resultImgList[conversionCnt]["transformedPath"];
+				var orgImgObj = document.getElementById("orgImg");
+				orgImgObj.src = resultImgList[conversionCnt]["orgPath"];
+				
+				conversionCnt++;
+				if(conversionCnt === resultImgList.length){
+					doneConversion();
+				}
+			}, 1500);
+		}
+		
+		
+		function doneConversion(){
+			clearInterval(resultImgInterval);
+			document.getElementById("startConBtn").disabled = false;
+			document.getElementById("resultDownloadBtn").disabled = false;
+			conversionCnt = 0;
+		}
+		
+		function imgDownload(){
+			//fileDownForm.fileList.value = resultImgList.join(",");
+			
+			var resultTransformedImgNameList = [];
+			for(var i = 0; i < resultImgList.length; i++){
+				//resultTransformedImgNameList.push( resultImgList[i]["transformedPath"].substring(resultImgList[i]["transformedPath"].lastIndexOf("/")+1) );
+				resultTransformedImgNameList.push( resultImgList[i]["transformedPath"] );
+			}
+			
+			fileDownForm.fileList.value = resultTransformedImgNameList.join(",");
+			fileDownForm.datasetName.value = document.getElementById("datasetList").value;
+			
+			fileDownForm.action = "/demo/imgDownload";
+			fileDownForm.target = "downloadFrame";
+			fileDownForm.submit();
+		}
+		
+		function datasetChange(){
+			buttonInit();
+			document.getElementById("profileForm").innerHTML = profileFormMap[selectedEngineName];
+			//getYaml 호출
+			getYaml();
+		}
+		
+		
+		function selectEngine(engineFormMapKey){
+			selectedEngineName = engineFormMapKey;
+			let selObj = document.getElementById(engineFormMapKey + "Engine");
+			//이미 선택된 엔진이면 동작 안함
+			if(selObj.className !== "selEngine"){
+				getDatasetList();
+				
+				let siblingElementArr = selObj.parentElement.children;
+				for(let itemIdx = 0; itemIdx < siblingElementArr.length; itemIdx++){
+					let item = siblingElementArr[itemIdx];
+					if(selObj === item){
+						item.className = "selEngine";
+					}else{
+						item.className = "";
+					}
+				}
+				
+				//데이터 변환 요소 UI 변경 로직 만들자
+				document.getElementById("profileForm").innerHTML = profileFormMap[engineFormMapKey];
+				document.getElementById("engineForm").innerHTML = engineFormMap[engineFormMapKey];
+				
+			}
+		}
+		
+		function profileValidate(engineFormMapKey){
+			buttonInit();
+			
+			if(document.getElementById("datasetList").value === ""){
+				document.getElementById("datasetList").focus();
+				alert("입력 데이터를 선택하세요.");
+				return false;
+			}
+			
+			//엔진 종류에 따른 validation 로직 개발 할 것(float, int 확인 정도)
+			/*
+			if(engineFormMapKey === "camera"){
+			}else if(engineFormMapKey === "lidar"){
+			}else if(engineFormMapKey === "radar"){
+			}else if(engineFormMapKey === "format"){
+			}
+			*/
+			
+			let httpRequestEntity = {};
+			//httpRequestEntity["configfilePath"]//transform_config_path : 파일명까지 저장함(20230511), startEngine 호출시 사용
+			//httpRequestEntity["sensorProfilePath"]//src_sensor_profile_path, startEngine 호출시 사용
+			httpRequestEntity["datasetName"] = document.getElementById("datasetList").value;//UI에서 선택한 입력데이터
+			httpRequestEntity["engineName"] = engineFormMapKey;//엔진의 종류
+			try{
+				httpRequestEntity["engineProfile"] = makeProfile(engineFormMapKey);//config 파일 내용
+				engineProfile = JSON.parse(JSON.stringify(httpRequestEntity["engineProfile"]));
+			}catch(e){
+				alert(e);
+				return false;
+			}
+			
+			let transform_flag = httpRequestEntity["engineProfile"]["transform_flag"];
+			let isChecked = false;
+			for(let key in transform_flag){
+				if(transform_flag[key]){
+					isChecked = true;
+				}
+			}
+			if(!isChecked){
+				alert("체크된 변환 요소가 없습니다.");
+				return false;
+			}
+			
+			let newFolderName = document.getElementById(engineFormMapKey + "NewFolderName").value;//필수 항목
+			
+			if(newFolderName.replace(/\s/g, "").length === 0){
+				alert("'데이터명'은 필수 입력값 입니다.");
+				document.getElementById(engineFormMapKey + "NewFolderName").focus();
+				return false;
+			}
+			httpRequestEntity["newFolderName"] = newFolderName;//사용자가 입력한 데이터명 : 입력데이터 경로 만들기 용도로 사용함
+			
+			
+			
+			
+			//console.log( JSON.stringify(httpRequestEntity, null, 2) );
+			
+			// /val/config 호출
+			let option = {
+				url:"/val/config"
+				,requestData: httpRequestEntity
+				,completeFn: function(xhr){
+					if(xhr.readyState === 4){
+						if(xhr.status === 200){
+							console.log(xhr.responseJSON);
+							//xhr.responseJSON["responseData"]
+							//configfilePath, validationResult
+							let validationResult = xhr.responseJSON["responseData"]["validationResult"];
+							if(validationResult["code"] === "OK"){
+								//응답이 OK 이면 변환 시작 버튼 활성화
+								//TODO: input들 readonly 만들자, 입력 데이터 포함
+								document.getElementById("startConBtn").disabled = false;
+								document.getElementById("datasetList").disabled = true;
+								
+								setActivation(true);//false: 활성화, true: 비활성화
+								
+								configfilePath = xhr.responseJSON["responseData"]["configfilePath"];
+								sensorProfilePath = xhr.responseJSON["responseData"]["sensorProfilePath"];
+								
+								alert("유효성 분석이 완료되었습니다. 변환을 시작하세요.")
+							}else{
+								alert(validationResult["message"]);
+							}
+						}
+					}
+				}
+				,beforeSendFn: function(xhr){}
+			};
+			callAsyncUrl(option);
+			
+		}
+		
+		//false: 활성화, true: 비활성화
+		function setActivation(isDisabled){
+			console.log("setActivation.isDisabled:" + isDisabled);
+			//selectedEngineName;
+			
+			$("#engineForm").find("input").each(function(index, item){
+// 				console.log(index);
+// 				console.log(item);
+				let itemType = item.getAttribute("type");
+				if(itemType === "text"){
+					item.readOnly = isDisabled;
+				}else if(itemType === "checkbox"){
+					item.disabled = isDisabled;
+				}
+			});
+			
+			if(selectedEngineName === "camera"){
+				document.getElementById("cameraColorOption").disabled = isDisabled;
+			}
+		}
+		
+		function makeProfile(engineFormMapKey){
+			let result = {};
+			result["sensor"] = engineFormMapKey;
+			result["transform_flag"] = {};
+			result["transform_flag"]["FOV"] = false;
+			result["transform_flag"]["resolution_channel"] = false;
+			result["transform_flag"]["distortion"] = false;
+			result["transform_flag"]["position"] = false;
+			result["transform_flag"]["angle"] = false;
+			result["transform_flag"]["color"] = false;
+			
+			let checkArr = document.getElementsByName(engineFormMapKey + "Check");
+			for(let chkIdx = 0; chkIdx < checkArr.length; chkIdx++){
+				let checkBox = checkArr[chkIdx];
+				
+				if(checkBox["checked"]){
+					//체크된 경우
+					if(checkBox["id"] === (engineFormMapKey + "FOV") ){
+						result["transform_flag"]["FOV"] = true;
+						result["FOV"] = makeFOV(engineFormMapKey);
+					}
+					
+					//카메라 : makeResolution
+					if(checkBox["id"] === (engineFormMapKey + "Resolution") ){
+						result["transform_flag"]["resolution_channel"] = true;
+						result["camera_resolution"] = makeResolution(engineFormMapKey);
+					}
+					
+					//라이다 : makeResolution
+					if(checkBox["id"] === (engineFormMapKey + "Channel") ){
+						result["transform_flag"]["resolution_channel"] = true;
+						result["lidar_channel"] = makeResolution(engineFormMapKey);
+					}
+					
+					if(checkBox["id"] === (engineFormMapKey + "Distortion") ){
+						result["transform_flag"]["distortion"] = true;
+						result["distortion"] = {};
+						result["distortion"]["data"] = makeDistortion(engineFormMapKey);
+						
+					}
+					
+					if(checkBox["id"] === (engineFormMapKey + "Position") ){
+						result["transform_flag"]["position"] = true;
+						result["delta_position"] = makePosition(engineFormMapKey);
+					}
+					
+					if(checkBox["id"] === (engineFormMapKey + "Angle") ){
+						result["transform_flag"]["angle"] = true;
+						result["delta_angle"] = makeAngle(engineFormMapKey);
+						
+					}
+					
+					if(checkBox["id"] === (engineFormMapKey + "Color") ){
+						result["transform_flag"]["color"] = true;
+						result["color_option"] = makeColor(engineFormMapKey);
+						
+					}
+				}
+			}
+			
+			return result;
+		}
+		
+		function makeColor(engineFormMapKey){
+			return makeInt(engineFormMapKey + "ColorOption");
+		}
+		
+		function makeAngle(engineFormMapKey){
+			let result = {};
+			result["roll"] = makeFloat(engineFormMapKey + "AngleRoll");
+			result["pitch"] = makeFloat(engineFormMapKey + "AnglePitch");
+			result["yaw"] = makeFloat(engineFormMapKey + "AngleYaw");
+			return result;
+		}
+		
+		function makePosition(engineFormMapKey){
+			let result = {};
+			result["x"] = makeFloat(engineFormMapKey + "PositionX");
+			result["y"] = makeFloat(engineFormMapKey + "PositionY");
+			result["z"] = makeFloat(engineFormMapKey + "PositionZ");
+			return result;
+		}
+		
+		function makeDistortion(engineFormMapKey){
+			let result = [];
+			result.push( makeFloat(engineFormMapKey + "Distortion0") );
+			result.push( makeFloat(engineFormMapKey + "Distortion1") );
+			result.push( makeFloat(engineFormMapKey + "Distortion2") );
+			result.push( makeFloat(engineFormMapKey + "Distortion3") );
+			result.push( makeFloat(engineFormMapKey + "Distortion4") );
+			return result;
+		}
+		
+		function makeResolution(engineFormMapKey){
+			let result = {};
+			if(engineFormMapKey === "camera"){
+				result["width"] = makeInt(engineFormMapKey + "ResolutionWidth");
+				result["height"] = makeInt(engineFormMapKey + "ResolutionHeight");
+			}else if(engineFormMapKey === "lidar"){
+				result = makeInt(engineFormMapKey + "ChannelSize");
+			}
+			
+			return result;
+		}
+		
+		function makeFOV(engineFormMapKey){
+			let result = {};
+			result["Horizontal"] = {};
+			result["Horizontal"]["min"] = makeFloat(engineFormMapKey + "FOVHmin");
+			result["Horizontal"]["max"] = makeFloat(engineFormMapKey + "FOVHmax");
+			result["Vertical"] = {};
+			result["Vertical"]["min"] = makeFloat(engineFormMapKey + "FOVVmin");
+			result["Vertical"]["max"] = makeFloat(engineFormMapKey + "FOVVmax");
+			return result;
+		}
+		
+		
+		function makeFloat(elementID){
+			let floatRegex = /^(-?)[0-9]*(.?)[0-9]*$/;//float 형식 숫자만
+			let element = document.getElementById(elementID);
+			
+			if(element.value.replace(/\s/g, "").length === 0 || !floatRegex.test(element.value)){
+				element.focus();
+				throw "float 형식 숫자만 허용합니다.";
+			}
+			
+			return parseFloat( element.value );
+		}
+		
+		function makeInt(elementID){
+			let intRegex = /^(-?)[1-9]+[0-9]*$/;//int 형식 숫자만
+			let element = document.getElementById(elementID);
+			
+			if(element.value.replace(/\s/g, "").length === 0 || !intRegex.test(element.value)){
+				element.focus();
+				throw "int 형식 숫자만 허용합니다.";
+			}
+			
+			return parseInt(element.value, 10);
+		}
+		
+		/*
+		버튼 초기화
+		*/
+		function buttonInit(){
+			document.getElementById("datasetList").disabled = false;
+			document.getElementById("startConBtn").disabled = true;
+			document.getElementById("resultDownloadBtn").disabled = true;
+			engineProfile = {};
+		}
+		
+		let selectedEngineName = "";
+		let configfilePath = "";
+		let sensorProfilePath = "";
+		let conversionCnt = 0;
+		let resultImgList = [];
+		let resultImgInterval;
+		let engineProfile = {};
+		
+		
+		window.onload = function(){
+			//초기화 - 카메라 선택
+			let engineFormMapKey = "camera";
+// 			engineFormMapKey = "lidar";
+// 			engineFormMapKey = "radar";
+			selectEngine(engineFormMapKey);
+		}
+	</script>
+</head>
+<body>
+	<div style="text-align: center; font-size: 28px; font-weight: bold;">학습 데이터 변환</div>
+	<div class="convertMenu">
+		<div id="cameraEngine" onclick="selectEngine('camera');" class="">카메라</div>
+		<div id="lidarEngine" onclick="selectEngine('lidar');" class="">라이다</div>
+		<div id="radarEngine" onclick="selectEngine('radar');" class="">레이다</div>
+		<div id="formatEngine" onclick="selectEngine('format');" class="">포맷변환</div>
+	</div>
+	<div class="d_container">
+		<div class="div_box">
+		
+<!-- 			파일 또는 경로 선택부 -->
+			<div style="">
+				<div class="lineDiv">
+					<span class="title">입력 데이터 선택</span>
+					<select id="datasetList" onChange="datasetChange();" style="width: 600px; height:30px;" ></select>
+					<input type="button" value=" " id="reloadDatasetList" onclick="getDatasetList();" style="width: 28px; height: 28px; cursor:pointer; margin: 5px 5px 5px 5px; background: url('/img/reload.png') no-repeat; "/>
+				</div>
+				<!-- 임시 주석
+				<div class="lineDiv">
+					<span class="title">입력 데이터 upload</span>
+					<input id="runCmd" type="file" disabled="disabled" value="" style="width: 600px; height:30px;" />
+				</div>
+				 -->
+			</div>
+			
+<!-- 			이미지 출력부 -->
+			<div style="">
+				<div class="parent" style="margin: 15px 5px 5px 5px;" >
+					<div class="child5">입력 데이터	</div >
+					<div class="child1"></div >
+					<div class="child5">변환 결과 데이터(샘플)</div >
+				</div>
+				<div class="parent" >
+					<div class="child5">
+						<img id="orgImg" src="/img/org.png"/>
+					</div >
+					<div class="child1">
+						<img src="/img/animate-arrow2.gif" style="width: 100px;"/>
+					</div >
+					<div class="child5">
+						<img id="resultImg" src="/img/after.png"/>
+					</div >
+				</div>
+			</div>
+			
+<!-- 			프로퍼티 영역 -->
+			<div style="margin: 20px 0 0 0;">
+<!-- 				<div class="parent" > -->
+<!-- 					<div class="child3" style="text-align: left; margin: 0 0 0 15px;"> -->
+<!-- 						입력 데이터 프로파일 -->
+<!-- 					</div > -->
+<!-- 					<div class="child5" style="text-align: left; margin: 0 0 0 15px;"> -->
+<!-- 						데이터 변환 요소 -->
+<!-- 					</div > -->
+<!-- 				</div> -->
+				<div class="parent" style="margin: 5px 0 0 0;" >
+					<div class="child1" id="profileForm">
+						<!-- engineFormMap -->
+					</div >
+<!-- 					엔진 선택에 따른 폼 변경 영역 -->
+					<div class="child1" id="engineForm">
+						<!-- engineFormMap -->
+					</div >
+				</div>
+			</div>
+			<div>
+			<!--  disabled="disabled" -->
+				<input type="button" value="변환 결과 다운로드" id="resultDownloadBtn" onclick="imgDownload();" disabled="disabled" style="width: 130px; height: 28px; float:right; margin: 5px 5px 5px 5px;"/>
+				<input type="button" value="변환 시작" id="startConBtn" onclick="startConversion();" disabled="disabled" style="width: 130px; height: 28px; float:right; margin: 5px 5px 5px 5px;"/>
+			</div>
+			
+		</div>
+	</div>
+	
+	<iframe width="0" height="0" name="downloadFrame" style="display:none;"></iframe>
+	<form name="fileDownForm" method="post">
+		<input type=hidden name="fileList">
+		<input type=hidden name="datasetName">
+	</form>
+</body>
+</html>

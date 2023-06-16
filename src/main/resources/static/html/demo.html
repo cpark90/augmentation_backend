@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>G-RnD</title>
+	<script type="text/javascript" src="/js/jquery-3.6.0.min.js"></script>
+	<script type="text/javascript" src="/js/yaml.min.js"></script>
+	<style type="text/css">
+		img { max-width: 380px; height: auto; }
+		caption{ font-size: 23px; }
+		.d_container { 
+			position: relative;
+			height: 100%;
+			width: 100%;
+			min-height:750px;
+			min-width:1100px;
+			background: #fff;
+		}
+		.div_box { 
+			position: absolute; 
+			height: 720px;
+			width: 1024px;
+			background: #ffffff;
+			top: 50%;
+			left: 50%;
+			margin: -350px 0 0 -512px;
+			border: 1px solid #dddddd;
+			border-radius: 10px;
+		}
+		.lineDiv{ margin: 5px; }
+		.title {
+			display:inline-block;
+			height: 25px;
+			width: 250px;
+		}
+		.parent { display: flex; text-align: center;}
+		.child1 { flex: 1; margin: auto; display: block;}
+		.child3 { flex: 3; margin: auto; display: block;}
+		.child5 { flex: 5; margin: auto; display: block;}
+	</style>
+	<script type="text/javascript">
+		
+		function getDataSetList(){
+			$.ajax({
+				url:'/demo/getDataSetList'
+				,async:true //false 일 경우 동기 요청으로 변경
+				,contentType: "application/json; charset=utf-8;"
+				,type:'GET' //POST, GET, PUT
+	// 			,data: JSON.stringify(requestData) //전송할 데이터
+				,dataType:'json'// xml, json, script, html
+				,beforeSend:function(xhr) {}// 서버 요청 전 호출 되는 함수 return false; 일 경우 요청 중단
+				,complete:function(xhr) {
+					
+					if(xhr.readyState === 4){
+						if(xhr.status === 200){
+							var dataSetList = document.getElementById("dataSetList");
+							
+							var searchResult = xhr.responseJSON["responseData"]["searchResult"];
+							for(var idx = 0; idx < searchResult.length; idx++){
+								var option = document.createElement("option");
+								option.innerText = searchResult[idx]["label"];
+// 								option.value = searchResult[idx]["RECEIVE_TIME_MILLIS"];
+								option.value = searchResult[idx]["value"];
+								dataSetList.append(option);
+							}
+								
+						}else{
+							console.error(xhr.responseText);
+						}
+					}
+				}// 요청의 실패, 성공과 상관 없이 완료 될 경우 호출
+				,success:function(xhr) {}// 요청 완료 시
+				,error:function(xhr) {}// 요청 실패.
+			});
+		}
+		
+		
+		
+		function startConversion(){
+			
+			var dataSetList = document.getElementById("dataSetList");
+			
+			if("" === dataSetList.value){
+				alert("입력 데이터를 선택하세요.");
+			}else{
+				getDataSetItemList(dataSetList.value);
+			}
+			
+			
+			
+		}
+		
+		
+		var conversionCnt = 0;
+		var resultImgList = [];
+		var resultImgInterval;
+		
+		
+		function getDataSetItemList(datasetName){
+			
+			
+			$.ajax({
+				url:'/demo/getDataSetItemList'
+				,async:true //false 일 경우 동기 요청으로 변경
+				,contentType: "application/json; charset=utf-8;"
+				,type:'POST' //GET, PUT
+				,data: JSON.stringify({"datasetName":datasetName}) //전송할 데이터
+				,dataType:'json'// xml, json, script, html
+				,beforeSend:function(xhr) {}// 서버 요청 전 호출 되는 함수 return false; 일 경우 요청 중단
+				,complete:function(xhr) {
+					if(xhr.readyState === 4){
+						if(xhr.status === 200){
+							if(!xhr.responseJSON["error"]){
+								console.log(xhr.responseJSON);
+								
+								var connectionEdgeList = document.getElementById("connectionEdgeList");
+								resultImgList = xhr.responseJSON["responseData"]["imgList"];
+								
+								getYaml(xhr.responseJSON["responseData"]["yamlPath"]);
+								
+								//showIamge();
+								
+								/*
+								document.getElementById("connectionEdgeListTitle").innerText = "Edge List ("+runCMDHistoryData.length+"건)";
+								for(var idx = 0; idx < runCMDHistoryData.length; idx++){
+									if(runCMDHistoryData[idx]["RUN_CMD_ERROR_CODE"] !== "0"){
+										connectionEdgeList.innerHTML += "<p onclick='showDetailInfo(this);' style='color:red; cursor: pointer;'>"+ runCMDHistoryData[idx]["RUN_CMD_CONN_EDGE"] +"</p>";
+									}else{
+										connectionEdgeList.innerHTML += "<p onclick='showDetailInfo(this);' style='cursor: pointer;'>"+ runCMDHistoryData[idx]["RUN_CMD_CONN_EDGE"] +"</p>";
+									}
+								}
+								*/
+							}
+						}else{
+							console.error(xhr.responseText);
+						}
+					}
+				}// 요청의 실패, 성공과 상관 없이 완료 될 경우 호출
+				,success:function(xhr) {}// 요청 완료 시
+				,error:function(xhr) {}// 요청 실패.
+			});
+			
+		}
+		
+		function getYaml(yamlPath){
+			$.ajax({
+				url: yamlPath
+				,async:true //false 일 경우 동기 요청으로 변경
+				,contentType: "application/json; charset=utf-8;"
+				,type:'GET' //GET, POST, PUT
+				//,data: JSON.stringify({"datasetName":datasetName}) //전송할 데이터
+				,dataType:'json'// xml, json, script, html
+				,beforeSend:function(xhr) {}// 서버 요청 전 호출 되는 함수 return false; 일 경우 요청 중단
+				,complete:function(xhr) {
+					if(xhr.readyState === 4){
+						if(xhr.status === 200){
+							//console.log(xhr.responseText);
+							
+							var yamlObj = YAML.parse(xhr.responseText);
+							//var resultJson = JSON.parse(JSON.stringify(yamlObj));
+							//console.log(yamlObj);
+							
+							//센서 해상도(수평,수직)
+							document.getElementById("resolution").innerText = yamlObj["image_width"] + ", " + yamlObj["image_height"];
+							
+							//(카메라)렌즈 왜곡 계수
+							document.getElementById("distortion").innerText = yamlObj["distortion_coefficients"]["data"].join(", ");
+							
+							if(document.getElementById("dataSetList").value === "camera0"){
+								document.getElementsByName("transformedType").forEach(function(element){
+									element.checked = false;
+								});
+								document.getElementsByName("transformedType")[5].checked = true;
+								
+								//camera0: 센서 위치 변환 (1p) 값 참조: 0, 0, 0.5
+								document.getElementById("sensorX").value = "0";
+								document.getElementById("sensorY").value = "0";
+								document.getElementById("sensorZ").value = "0.5";
+								
+								document.getElementById("angleFX").value = "";
+								document.getElementById("angleFY").value = "";
+								document.getElementById("angleCX").value = "";
+								document.getElementById("angleCY").value = "";
+								
+							}else if(document.getElementById("dataSetList").value === "camera1"){
+								document.getElementsByName("transformedType").forEach(function(element){
+									element.checked = false;
+								});
+								document.getElementsByName("transformedType")[0].checked = true;
+								
+								//camera1: 화각 변환(카메라) (2p) 값 참조: 300, 450, 300, 200
+								//angle FX, FY, CX, CY
+								document.getElementById("angleFX").value = "300";
+								document.getElementById("angleFY").value = "450";
+								document.getElementById("angleCX").value = "300";
+								document.getElementById("angleCY").value = "200";
+								
+								document.getElementById("sensorX").value = "";
+								document.getElementById("sensorY").value = "";
+								document.getElementById("sensorZ").value = "";
+							}
+							
+							showIamge();
+						}else{
+							console.error(xhr.responseText);
+						}
+					}
+				}// 요청의 실패, 성공과 상관 없이 완료 될 경우 호출
+				,success:function(xhr) {}// 요청 완료 시
+				,error:function(xhr) {}// 요청 실패.
+			});
+		}
+		
+		function showIamge(){
+			document.getElementById("startConBtn").disabled = true;
+			document.getElementById("resultDownloadBtn").disabled = true;
+			
+			resultImgInterval = setInterval(function(){
+				var resultImgObj = document.getElementById("resultImg");
+				resultImgObj.src = resultImgList[conversionCnt]["transformedPath"];
+				var orgImgObj = document.getElementById("orgImg");
+				orgImgObj.src = resultImgList[conversionCnt]["orgPath"];
+				
+				conversionCnt++;
+				if(conversionCnt === resultImgList.length){
+					doneConversion();
+				}
+			}, 1500);
+		}
+		
+		
+		function doneConversion(){
+			clearInterval(resultImgInterval);
+			document.getElementById("startConBtn").disabled = false;
+			document.getElementById("resultDownloadBtn").disabled = false;
+			conversionCnt = 0;
+		}
+		
+		function imgDownload(){
+			//fileDownForm.fileList.value = resultImgList.join(",");
+			
+			var resultTransformedImgNameList = [];
+			for(var i = 0; i < resultImgList.length; i++){
+				//resultTransformedImgNameList.push( resultImgList[i]["transformedPath"].substring(resultImgList[i]["transformedPath"].lastIndexOf("/")+1) );
+				resultTransformedImgNameList.push( resultImgList[i]["transformedPath"] );
+			}
+			
+			fileDownForm.fileList.value = resultTransformedImgNameList.join(",");
+			fileDownForm.dataSetName.value = document.getElementById("dataSetList").value;
+			
+			fileDownForm.action = "/demo/imgDownload";
+			fileDownForm.target = "downloadFrame";
+			fileDownForm.submit();
+		}
+		
+		function datasetChange(){
+			
+			document.getElementById("resultDownloadBtn").disabled = true;
+		}
+		
+		window.onload = function(){
+			getDataSetList();
+		}
+	</script>
+</head>
+<body>
+	<div style="text-align: center; font-size: 28px; font-weight: bold;">이미지 변환 증식 데모</div>
+	<div class="d_container">
+		<div class="div_box">
+		
+<!-- 			파일 또는 경로 선택부 -->
+			<div style="">
+				<div class="lineDiv">
+					<span class="title">입력 데이터 선택</span>
+					<select id="dataSetList" onChange="datasetChange();" style="width: 600px; height:30px;" >
+						<option value="" selected="selected">선택</option>
+					</select>
+				</div>
+				<div class="lineDiv">
+					<span class="title">입력 데이터 upload</span>
+					<input id="runCmd" type="file" disabled="disabled" value="" style="width: 600px; height:30px;" />
+				</div>
+			</div>
+			
+<!-- 			이미지 출력부 -->
+			<div style="">
+				<div class="parent" style="margin: 15px 5px 5px 5px;" >
+					<div class="child5">입력 데이터	</div >
+					<div class="child1"></div >
+					<div class="child5">변환 결과 데이터(샘플)</div >
+				</div>
+				<div class="parent" >
+					<div class="child5">
+						<img id="orgImg" src="/img/org.png"/>
+					</div >
+					<div class="child1">
+						<img src="/img/animate-arrow2.gif" style="width: 100px;"/>
+					</div >
+					<div class="child5">
+						<img id="resultImg" src="/img/after.png"/>
+					</div >
+				</div>
+			</div>
+			
+			<div style="height: 30px;  margin: 20px 0 0 0;">
+				<input type="button" value="변환 유효성 분석" style="width: 130px; height: 28px; float:right; margin: 0 5px 0 0;"/>
+			</div>
+			
+<!-- 			프로퍼티 영역 -->
+			<div style="">
+<!-- 				<div class="parent" > -->
+<!-- 					<div class="child3" style="text-align: left; margin: 0 0 0 15px;"> -->
+<!-- 						입력 데이터 프로파일 -->
+<!-- 					</div > -->
+<!-- 					<div class="child5" style="text-align: left; margin: 0 0 0 15px;"> -->
+<!-- 						데이터 변환 요소 -->
+<!-- 					</div > -->
+<!-- 				</div> -->
+				<div class="parent" style="margin: 5px 0 0 0;" >
+					<div class="child1" >
+						<table border="0px" width="100%" height="200" style="font-size: 10pt; border-spacing: 0;">
+							<caption>입력 데이터 프로파일</caption>
+							<tbody>
+								<tr align="left" bgcolor="white">
+									<td>센서 종류</td>
+									<td>
+										<input type="radio" name="sensorType" id="camera" value="camera" checked="checked"><label for="camera">카메라</label>
+										<input type="radio" name="sensorType" id="LiDAR" value="LiDAR"><label for="LiDAR">라이다</label>
+										<input type="radio" name="sensorType" id="radar" value="radar"><label for="radar">레이다</label>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 모델명</td>
+									<td>CLCC-SOG-020-100</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>총 데이터량</td>
+									<td>10,000 frames</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 수평 화각 범위(min,max)</td>
+									<td>-49°, +49°</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 수직 화각 범위(min,max)</td>
+									<td>-28°, +28°</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 해상도(수평,수직)</td>
+									<td><span id="resolution">NaN, NaN</span></td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 차량 장착 위치(X,Y,Z)</td>
+									<td>1.14, 0.384, 0.037</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>센서 차량 장착 각도(roll,pitch,yaw) </td>
+									<td> 88.8°, -179.9°, 87.6°</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td>(카메라)렌즈 왜곡 계수</td>
+									<td>(k1, k2, p1, p2, k3)=(<span id="distortion">NaN, NaN, NaN, NaN, NaN</span>)</td>
+								</tr>
+							</tbody>
+						</table>
+					</div >
+					<div class="child1" >
+						<table border="0px" width="100%" height="230" style="font-size: 10pt; border-spacing: 0;">
+							<caption>데이터 변환 요소(유저입력)</caption>
+							<tbody>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="">화각 변환(카메라)</td>
+									<td>
+										내부파라미터(fx,fy,cx,cy)<input id="angleFX" type="text" style="width: 30px;"/> <input id="angleFY" type="text" style="width: 30px;"/>
+										<input id="angleCX" type="text" style="width: 30px;"/> <input id="angleCY" type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="">해상도 변환(카메라)</td>
+									<td>
+										수평<input type="text" style="width: 30px;"/>
+										수직<input type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="">왜곡변환(카메라)</td>
+									<td>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="">화각 변환(라이다)</td>
+									<td>
+										수평범위(min,max)<input type="text" style="width: 30px;"/> <input type="text" style="width: 30px;"/><br/>
+										수직범위(min,max)<input type="text" style="width: 30px;"/> <input type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="">해상도 변환(라이다)</td>
+									<td>
+										수평<input type="text" style="width: 30px;"/>
+										수직<input type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="위치">센서 위치 변환(x,y,z)</td>
+									<td>
+										<input id="sensorX" type="text" style="width: 30px;"/>
+										<input id="sensorY" type="text" style="width: 30px;"/>
+										<input id="sensorZ" type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+								<tr align="left" bgcolor="white">
+									<td><input type="checkbox" name="transformedType" value="각도">센서 각도 변환(roll,pitch,yaw)</td>
+									<td>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+										<input type="text" style="width: 30px;"/>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div >
+				</div>
+			</div>
+			<div>
+			<!--  disabled="disabled" -->
+				<input type="button" value="변환 결과 다운로드" id="resultDownloadBtn" onclick="imgDownload();" disabled="disabled" style="width: 130px; height: 28px; float:right; margin: 5px 5px 5px 5px;"/>
+				<input type="button" value="변환 시작" id="startConBtn" onclick="startConversion();" style="width: 130px; height: 28px; float:right; margin: 5px 5px 5px 5px;"/>
+			</div>
+			
+		</div>
+	</div>
+	
+	<iframe width="0" height="0" name="downloadFrame" style="display:none;"></iframe>
+	<form name="fileDownForm" method="post">
+		<input type=hidden name="fileList">
+		<input type=hidden name="dataSetName">
+	</form>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
