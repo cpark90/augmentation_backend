@@ -3,7 +3,7 @@ package javatest;
 
 // [START java_declaration]
 option java_multiple_files = true;
-option java_package = "org.eclipse.javatest";
+option java_package = "com.nexr.de.grnd.proto";
 // [END java_declaration]
 
 // [START messages]

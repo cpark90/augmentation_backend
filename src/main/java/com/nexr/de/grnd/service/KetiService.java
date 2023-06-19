@@ -81,7 +81,7 @@ public class KetiService {
 			}
 			
 			if((System.currentTimeMillis() - startTime) > this.propertiesUtil.getWaitMilliTime()) {
-				String errMsg = String.format("엔진 시작 대기시간이 %fms를 초과 했습니다(EngineName:%s).", this.propertiesUtil.getWaitMilliTime(), httpRequestEntity.getEngineName());
+				String errMsg = String.format("엔진 시작 대기시간이 %fms를 초과 했습니다(EngineName:%s).", (double) this.propertiesUtil.getWaitMilliTime(), httpRequestEntity.getEngineName());
 				LOGGER.warn(errMsg);
 				throw new EngineException(errMsg, httpRequestEntity.getEngineName());
 			}

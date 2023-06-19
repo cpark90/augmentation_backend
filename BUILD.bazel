@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//lang:image.bzl", container_image = "app_layer")
 
 
 
@@ -16,9 +16,9 @@ proto_library(
 )
 
 proto_library(
-    name = "helloworld_proto",
+    name = "greeter_proto",
     srcs = [
-        "src/main/proto/helloworld.proto",
+        "src/main/proto/greeter.proto",
     ],
     deps = [
         ":addressbook_proto",
@@ -33,19 +33,19 @@ java_proto_library(
 )
 
 java_proto_library(
-    name = "helloworld_proto_java",
+    name = "greeter_proto_java",
     deps = [
-        ":helloworld_proto",
+        ":greeter_proto",
     ],
 )
 
 java_grpc_library(
-    name = "helloworld_java_grpc",
+    name = "greeter_java_grpc",
     srcs = [
-        ":helloworld_proto",
+        ":greeter_proto",
     ],
     deps = [
-        ":helloworld_proto_java",
+        ":greeter_proto_java",
     ],
 )
 
@@ -72,18 +72,30 @@ java_library(
     resources = glob(["src/main/resources/**/*"]),
     deps = [
         ":addressbook_proto_java",
-        ":helloworld_proto_java",
-        ":helloworld_java_grpc",
+        ":greeter_proto_java",
+        ":greeter_java_grpc",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//stub",
+        
+        "@maven//:org_springframework_boot_spring_boot_starter_web",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_squareup_okhttp3_okhttp",
+        "@maven//:io_kubernetes_client_java_extended",
+
+        "@maven//:io_kubernetes_client_java",
+        "@maven//:io_kubernetes_client_java_api",
+        "@maven//:io_kubernetes_client_java_api_fluent",
+        "@maven//:org_springframework_boot_spring_boot",
+        "@maven//:org_springframework_boot_spring_boot_autoconfigure",
+        "@maven//:org_springframework_spring_beans",
+        "@maven//:org_springframework_spring_context",
+        "@maven//:org_springframework_spring_core",
+        "@maven//:org_springframework_spring_web",
+        "@maven//:org_apache_tomcat_annotations_api",
+        "@maven//:javax_servlet_servlet_api",
+        "@maven//:org_yaml_snakeyaml",
+        "@maven//:org_slf4j_slf4j_api",
     ],
-)
-
-
-# container
-
-container_image(
-    name = "augmentation_backend_base_image",
-    base = "@augmentation-backend-base//image",
-    workdir="/app",
 )
 
 
@@ -96,11 +108,39 @@ java_binary(
     deps = [
         ":augmentation-backend-library",
         ":addressbook_proto_java",
-        ":helloworld_proto_java",
-        ":helloworld_java_grpc",
+        ":greeter_proto_java",
+        ":greeter_java_grpc",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//stub",
+
+        "@maven//:org_springframework_boot_spring_boot_starter_web",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_squareup_okhttp3_okhttp",
+        "@maven//:io_kubernetes_client_java_extended",
+
+        "@maven//:io_kubernetes_client_java",
+        "@maven//:io_kubernetes_client_java_api",
+        "@maven//:io_kubernetes_client_java_api_fluent",
+        "@maven//:org_springframework_boot_spring_boot",
+        "@maven//:org_springframework_boot_spring_boot_autoconfigure",
+        "@maven//:org_springframework_spring_beans",
+        "@maven//:org_springframework_spring_context",
+        "@maven//:org_springframework_spring_core",
+        "@maven//:org_springframework_spring_web",
+        "@maven//:org_apache_tomcat_annotations_api",
+        "@maven//:javax_servlet_servlet_api",
+        "@maven//:org_yaml_snakeyaml",
+        "@maven//:org_slf4j_slf4j_api",
     ],
     main_class = "com.nexr.de.grnd.GovernmentRnDDemoApplication",
-    runtime_deps = [
-        ":augmentation_backend_base_image",
-    ],
 )
+
+
+# docker image
+
+container_image(
+    name="augmentation-backend-image",
+    base="@augmentation-backend-base//image",
+    binary=":augmentation-backend-app",
+    docker_run_flags="-it --rm --network=host --runtime=nvidia"
+    )

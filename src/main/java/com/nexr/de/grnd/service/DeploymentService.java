@@ -72,7 +72,7 @@ public class DeploymentService {
 	
 	@Autowired
 	private KetiService ketiService;
-	
+
 	/**
 	 * 데이터 변환 시작에 대한 요청을 처리
 	 * @param httpRequestEntity
@@ -99,7 +99,6 @@ public class DeploymentService {
 		 */
 		String targetPath = Paths.get(this.fileUtil.getDefaultPathByEngineName(httpRequestEntity), httpRequestEntity.getNewFolderName()).toString();
 		LOGGER.info("targetPath:{}", targetPath);
-		
 		
 		EngineEntity engineEntity = this.getEngineEntity(httpRequestEntity);
 		
